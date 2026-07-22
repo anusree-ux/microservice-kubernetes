@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS users (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  email VARCHAR(255) NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS orders (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id),
+  item VARCHAR(255) NOT NULL,
+  price NUMERIC(10,2) NOT NULL
+);
+
+INSERT INTO users (name, email) VALUES
+  ('Alex Developer', 'alex@example.com'),
+  ('Sam Engineer', 'sam@example.com')
+ON CONFLICT (email) DO NOTHING;
+
+INSERT INTO orders (user_id, item, price) VALUES
+  (1, 'DevOps Handbook', 29.99),
+  (2, 'Docker Mug', 12.50);

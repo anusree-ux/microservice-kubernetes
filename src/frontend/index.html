@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DevOps Microservices Dashboard</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --text: #f8fafc;
+      --accent: #38bdf8;
+      --border: #334155;
+      --danger: #ef4444;
+    }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 2rem;
+    }
+    h1 { text-align: center; color: var(--accent); margin-bottom: 2rem; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.5rem;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    .card h2 { margin-top: 0; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+    ul { list-style: none; padding: 0; }
+    li {
+      background: #0f172a;
+      border: 1px solid var(--border);
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      margin-bottom: 0.75rem;
+      position: relative;
+    }
+    .badge {
+      display: inline-block;
+      background: #0284c7;
+      color: white;
+      font-size: 0.75rem;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      margin-top: 0.5rem;
+    }
+    form {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1.25rem;
+    }
+    input, select {
+      flex: 1 1 120px;
+      background: #0f172a;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.5rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+    }
+    button {
+      background: var(--accent);
+      color: #0f172a;
+      border: none;
+      padding: 0.5rem 0.9rem;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+    button:hover { opacity: 0.85; }
+    .delete-btn {
+      position: absolute;
+      top: 0.6rem;
+      right: 0.6rem;
+      background: var(--danger);
+      color: white;
+      padding: 0.2rem 0.5rem;
+      font-size: 0.7rem;
+    }
+    .form-error {
+      color: var(--danger);
+      font-size: 0.8rem;
+      margin: -0.75rem 0 0.75rem 0;
+      min-height: 1em;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🚀 Microservices Management Dashboard</h1>
+
+  <div class="grid">
+    <!-- Users Card -->
+    <div class="card">
+      <h2>👤 Users (User Service)</h2>
+      <form id="user-form">
+        <input type="text" id="user-name" placeholder="Name" required>
+        <input type="email" id="user-email" placeholder="Email" required>
+        <button type="submit">Add User</button>
+      </form>
+      <div class="form-error" id="user-form-error"></div>
+      <ul id="user-list">Loading users...</ul>
+    </div>
+
+    <!-- Orders Card -->
+    <div class="card">
+      <h2>📦 Orders (Order Service)</h2>
+      <form id="order-form">
+        <select id="order-user-id" required>
+          <option value="">Select user...</option>
+        </select>
+        <input type="text" id="order-item" placeholder="Item" required>
+        <input type="number" id="order-price" placeholder="Price" step="0.01" min="0" required>
+        <button type="submit">Add Order</button>
+      </form>
+      <div class="form-error" id="order-form-error"></div>
+      <ul id="order-list">Loading orders...</ul>
+    </div>
+  </div>
+
+  <script>
+    const USER_API = 'http://localhost:5001';
+    const ORDER_API = 'http://localhost:5002';
+
+    let cachedUsers = [];
+
+    async function loadUsers() {
+      const userList = document.getElementById('user-list');
+      try {
+        const res = await fetch(`${USER_API}/users`);
+        const users = await res.json();
+        cachedUsers = users;
+
+        userList.innerHTML = users.map(u => `
+          <li>
+            <button class="delete-btn" onclick="deleteUser(${u.id})">✕</button>
+            <strong>${u.name}</strong><br/>
+            <small style="color: #94a3b8">${u.email}</small><br/>
+            <span class="badge">ID: ${u.id}</span>
+          </li>
+        `).join('') || '<li>No users yet</li>';
+
+        // populate order form's user dropdown
+        const select = document.getElementById('order-user-id');
+        const currentVal = select.value;
+        select.innerHTML = '<option value="">Select user...</option>' +
+          users.map(u => `<option value="${u.id}">${u.name} (ID: ${u.id})</option>`).join('');
+        select.value = currentVal;
+      } catch (err) {
+        userList.innerHTML = `<li style="color: #ef4444;">Failed to load users</li>`;
+      }
+    }
+
+    async function loadOrders() {
+      const orderList = document.getElementById('order-list');
+      try {
+        const res = await fetch(`${ORDER_API}/orders`);
+        const orders = await res.json();
+
+        if (orders.length === 0) {
+          orderList.innerHTML = '<li>No orders yet</li>';
+          return;
+        }
+
+        // Fetch each order with populated user details
+        const populated = await Promise.all(orders.map(async o => {
+          try {
+            const r = await fetch(`${ORDER_API}/orders/${o.id}`);
+            return r.ok ? await r.json() : o;
+          } catch {
+            return o;
+          }
+        }));
+
+        orderList.innerHTML = populated.map(order => `
+          <li>
+            <button class="delete-btn" onclick="deleteOrder(${order.id})">✕</button>
+            <strong>Item:</strong> ${order.item}<br/>
+            <strong>Price:</strong> $${order.price}<br/>
+            <span class="badge">Order ID: ${order.id}</span>
+            <div style="margin-top: 0.5rem; font-size: 0.85rem; color: #cbd5e1;">
+              <strong>Owner:</strong> ${order.user?.name || 'Unknown'} (${order.user?.email || 'N/A'})
+            </div>
+          </li>
+        `).join('');
+      } catch (err) {
+        orderList.innerHTML = `<li style="color: #ef4444;">Failed to load orders</li>`;
+      }
+    }
+
+    async function deleteUser(id) {
+      try {
+        const res = await fetch(`${USER_API}/users/${id}`, { method: 'DELETE' });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          alert(data.error || 'Failed to delete user');
+          return;
+        }
+        await loadUsers();
+      } catch (err) {
+        alert('Failed to delete user: ' + err.message);
+      }
+    }
+
+    async function deleteOrder(id) {
+      try {
+        const res = await fetch(`${ORDER_API}/orders/${id}`, { method: 'DELETE' });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          alert(data.error || 'Failed to delete order');
+          return;
+        }
+        await loadOrders();
+      } catch (err) {
+        alert('Failed to delete order: ' + err.message);
+      }
+    }
+
+    document.getElementById('user-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errorEl = document.getElementById('user-form-error');
+      errorEl.textContent = '';
+      const name = document.getElementById('user-name').value.trim();
+      const email = document.getElementById('user-email').value.trim();
+
+      try {
+        const res = await fetch(`${USER_API}/users`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          errorEl.textContent = data.error || 'Failed to add user';
+          return;
+        }
+        e.target.reset();
+        await loadUsers();
+      } catch (err) {
+        errorEl.textContent = 'Request failed: ' + err.message;
+      }
+    });
+
+    document.getElementById('order-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errorEl = document.getElementById('order-form-error');
+      errorEl.textContent = '';
+      const user_id = document.getElementById('order-user-id').value;
+      const item = document.getElementById('order-item').value.trim();
+      const price = document.getElementById('order-price').value;
+
+      if (!user_id) {
+        errorEl.textContent = 'Please select a user';
+        return;
+      }
+
+      try {
+        const res = await fetch(`${ORDER_API}/orders`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: Number(user_id), item, price: Number(price) })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          errorEl.textContent = data.error || 'Failed to add order';
+          return;
+        }
+        e.target.reset();
+        await loadOrders();
+      } catch (err) {
+        errorEl.textContent = 'Request failed: ' + err.message;
+      }
+    });
+
+    loadUsers();
+    loadOrders();
+  </script>
+</body>
+</html>
