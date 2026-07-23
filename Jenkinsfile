@@ -19,18 +19,16 @@ pipeline {
             parallel {
                 stage('Test user-service') {
                     steps {
-                        dir('src/user-service') {
-                            sh 'npm install'
-                            sh 'npm test'
-                        }
+                        sh '''
+                            docker run --rm -v "$PWD/src/user-service":/app -w /app node:20-alpine sh -c "npm install && npm test"
+                        '''
                     }
                 }
                 stage('Test order-service') {
                     steps {
-                        dir('src/order-service') {
-                            sh 'npm install'
-                            sh 'npm test'
-                        }
+                        sh '''
+                            docker run --rm -v "$PWD/src/order-service":/app -w /app node:20-alpine sh -c "npm install && npm test"
+                        '''
                     }
                 }
             }
@@ -58,14 +56,9 @@ pipeline {
 
         stage('Scan Images (Trivy)') {
             steps {
-                sh '''
-                    if ! command -v trivy &> /dev/null; then
-                        wget -qO- https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
-                    fi
-                '''
-                sh "trivy image --severity HIGH,CRITICAL --exit-code 0 ${DOCKERHUB_USER}/user-service:${IMAGE_TAG}"
-                sh "trivy image --severity HIGH,CRITICAL --exit-code 0 ${DOCKERHUB_USER}/order-service:${IMAGE_TAG}"
-                sh "trivy image --severity HIGH,CRITICAL --exit-code 0 ${DOCKERHUB_USER}/frontend:${IMAGE_TAG}"
+                sh "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --severity HIGH,CRITICAL --exit-code 0 ${DOCKERHUB_USER}/user-service:${IMAGE_TAG}"
+                sh "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --severity HIGH,CRITICAL --exit-code 0 ${DOCKERHUB_USER}/order-service:${IMAGE_TAG}"
+                sh "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --severity HIGH,CRITICAL --exit-code 0 ${DOCKERHUB_USER}/frontend:${IMAGE_TAG}"
             }
         }
 
@@ -86,11 +79,3 @@ pipeline {
         always {
             sh 'docker logout || true'
         }
-        success {
-            echo "Pipeline succeeded — images pushed as build ${IMAGE_TAG}"
-        }
-        failure {
-            echo "Pipeline failed — check stage logs above"
-        }
-    }
-}
