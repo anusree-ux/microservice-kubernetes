@@ -79,3 +79,11 @@ pipeline {
         always {
             sh 'docker logout || true'
         }
+        success {
+            echo "Pipeline succeeded — images pushed as build ${IMAGE_TAG}"
+        }
+        failure {
+            echo "Pipeline failed — check stage logs above"
+        }
+    }
+}
