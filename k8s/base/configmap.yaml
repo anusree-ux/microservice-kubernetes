@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: microservice-app
+  labels:
+    project: microservice-app
+    component: configuration
+data:
+  POSTGRES_DB: "appdb"
+  DB_HOST: "db"
+  DB_PORT: "5432"
+  USER_SERVICE_PORT: "5001"
+  ORDER_SERVICE_PORT: "5002"
+  FRONTEND_PORT: "3000"

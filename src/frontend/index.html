@@ -131,15 +131,15 @@
   </div>
 
   <script>
-    const USER_API = 'http://localhost:5001';
-    const ORDER_API = 'http://localhost:5002';
+    const USER_API = '/api/users';
+    const ORDER_API = '/api/orders';
 
     let cachedUsers = [];
 
     async function loadUsers() {
       const userList = document.getElementById('user-list');
       try {
-        const res = await fetch(`${USER_API}/users`);
+	const res = await fetch(USER_API);
         const users = await res.json();
         cachedUsers = users;
 
@@ -166,7 +166,7 @@
     async function loadOrders() {
       const orderList = document.getElementById('order-list');
       try {
-        const res = await fetch(`${ORDER_API}/orders`);
+        const res = await fetch(ORDER_API);
         const orders = await res.json();
 
         if (orders.length === 0) {
@@ -177,7 +177,7 @@
         // Fetch each order with populated user details
         const populated = await Promise.all(orders.map(async o => {
           try {
-            const r = await fetch(`${ORDER_API}/orders/${o.id}`);
+            const r = await fetch(`${ORDER_API}/${o.id}`);
             return r.ok ? await r.json() : o;
           } catch {
             return o;
@@ -202,7 +202,7 @@
 
     async function deleteUser(id) {
       try {
-        const res = await fetch(`${USER_API}/users/${id}`, { method: 'DELETE' });
+        const res = await fetch(`${USER_API}/${id}`, { method: 'DELETE' });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
           alert(data.error || 'Failed to delete user');
@@ -216,7 +216,7 @@
 
     async function deleteOrder(id) {
       try {
-        const res = await fetch(`${ORDER_API}/orders/${id}`, { method: 'DELETE' });
+        const res = await fetch(`${ORDER_API}/${id}`, { method: 'DELETE' });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
           alert(data.error || 'Failed to delete order');
@@ -236,7 +236,7 @@
       const email = document.getElementById('user-email').value.trim();
 
       try {
-        const res = await fetch(`${USER_API}/users`, {
+        const res = await fetch(USER_API, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name, email })
@@ -267,7 +267,7 @@
       }
 
       try {
-        const res = await fetch(`${ORDER_API}/orders`, {
+        const res = await fetch(ORDER_API, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ user_id: Number(user_id), item, price: Number(price) })

@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 case "$1" in
     start)
@@ -23,7 +24,7 @@ case "$1" in
         ;;
 
     *)
-        echo "Usage: ./deploy.sh {start|stop|restart|status}"
+        echo "Usage: ./deploy.sh {start|stop|restart|status|logs}"
         exit 1
         ;;
 esac
