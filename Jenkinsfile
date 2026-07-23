@@ -5,6 +5,7 @@ pipeline {
         DOCKERHUB_CREDENTIALS = credentials('dockerhub-credentials')
         DOCKERHUB_USER = "${DOCKERHUB_CREDENTIALS_USR}"
         IMAGE_TAG = "${env.BUILD_NUMBER}"
+        HOST_WORKSPACE = "/home/anu/jenkins-home/workspace/microservice-app-ci"
     }
 
     stages {
@@ -20,14 +21,14 @@ pipeline {
                 stage('Test user-service') {
                     steps {
                         sh '''
-                            docker run --rm -v "$PWD/src/user-service":/app -w /app node:20-alpine sh -c "npm install && npm test"
+                            docker run --rm -v "$HOST_WORKSPACE/src/user-service":/app -w /app node:20-alpine sh -c "npm install && npm test"
                         '''
                     }
                 }
                 stage('Test order-service') {
                     steps {
                         sh '''
-                            docker run --rm -v "$PWD/src/order-service":/app -w /app node:20-alpine sh -c "npm install && npm test"
+                            docker run --rm -v "$HOST_WORKSPACE/src/order-service":/app -w /app node:20-alpine sh -c "npm install && npm test"
                         '''
                     }
                 }
@@ -38,17 +39,17 @@ pipeline {
             parallel {
                 stage('Build user-service') {
                     steps {
-                        sh "docker build -t ${DOCKERHUB_USER}/user-service:${IMAGE_TAG} -t ${DOCKERHUB_USER}/user-service:latest ./src/user-service"
+                        sh 'docker build -t $DOCKERHUB_USER/user-service:$IMAGE_TAG -t $DOCKERHUB_USER/user-service:latest $HOST_WORKSPACE/src/user-service'
                     }
                 }
                 stage('Build order-service') {
                     steps {
-                        sh "docker build -t ${DOCKERHUB_USER}/order-service:${IMAGE_TAG} -t ${DOCKERHUB_USER}/order-service:latest ./src/order-service"
+                        sh 'docker build -t $DOCKERHUB_USER/order-service:$IMAGE_TAG -t $DOCKERHUB_USER/order-service:latest $HOST_WORKSPACE/src/order-service'
                     }
                 }
                 stage('Build frontend') {
                     steps {
-                        sh "docker build -t ${DOCKERHUB_USER}/frontend:${IMAGE_TAG} -t ${DOCKERHUB_USER}/frontend:latest ./src/frontend"
+                        sh 'docker build -t $DOCKERHUB_USER/frontend:$IMAGE_TAG -t $DOCKERHUB_USER/frontend:latest $HOST_WORKSPACE/src/frontend'
                     }
                 }
             }
@@ -56,21 +57,21 @@ pipeline {
 
         stage('Scan Images (Trivy)') {
             steps {
-                sh "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --severity HIGH,CRITICAL --exit-code 0 ${DOCKERHUB_USER}/user-service:${IMAGE_TAG}"
-                sh "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --severity HIGH,CRITICAL --exit-code 0 ${DOCKERHUB_USER}/order-service:${IMAGE_TAG}"
-                sh "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --severity HIGH,CRITICAL --exit-code 0 ${DOCKERHUB_USER}/frontend:${IMAGE_TAG}"
+                sh 'docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --severity HIGH,CRITICAL --exit-code 0 $DOCKERHUB_USER/user-service:$IMAGE_TAG'
+                sh 'docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --severity HIGH,CRITICAL --exit-code 0 $DOCKERHUB_USER/order-service:$IMAGE_TAG'
+                sh 'docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --severity HIGH,CRITICAL --exit-code 0 $DOCKERHUB_USER/frontend:$IMAGE_TAG'
             }
         }
 
         stage('Push to Docker Hub') {
             steps {
                 sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
-                sh "docker push ${DOCKERHUB_USER}/user-service:${IMAGE_TAG}"
-                sh "docker push ${DOCKERHUB_USER}/user-service:latest"
-                sh "docker push ${DOCKERHUB_USER}/order-service:${IMAGE_TAG}"
-                sh "docker push ${DOCKERHUB_USER}/order-service:latest"
-                sh "docker push ${DOCKERHUB_USER}/frontend:${IMAGE_TAG}"
-                sh "docker push ${DOCKERHUB_USER}/frontend:latest"
+                sh 'docker push $DOCKERHUB_USER/user-service:$IMAGE_TAG'
+                sh 'docker push $DOCKERHUB_USER/user-service:latest'
+                sh 'docker push $DOCKERHUB_USER/order-service:$IMAGE_TAG'
+                sh 'docker push $DOCKERHUB_USER/order-service:latest'
+                sh 'docker push $DOCKERHUB_USER/frontend:$IMAGE_TAG'
+                sh 'docker push $DOCKERHUB_USER/frontend:latest'
             }
         }
     }
@@ -87,3 +88,4 @@ pipeline {
         }
     }
 }
+
