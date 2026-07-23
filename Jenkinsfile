@@ -5,8 +5,11 @@ pipeline {
         DOCKERHUB_CREDENTIALS = credentials('dockerhub-credentials')
         DOCKERHUB_USER = "${DOCKERHUB_CREDENTIALS_USR}"
         IMAGE_TAG = "${env.BUILD_NUMBER}"
-        // Use Jenkins workspace, not your host home path
+
+        // Jenkins view
         WORKSPACE_SRC = "${env.WORKSPACE}/src"
+        // Host view (for Docker bind mounts)
+        HOST_WORKSPACE_SRC = "/home/anu/jenkins-home/workspace/microservice-app-ci/src"
     }
 
     stages {
@@ -23,7 +26,7 @@ pipeline {
                     steps {
                         sh '''
                             docker run --rm \
-                              -v "${WORKSPACE_SRC}/user-service":/app \
+                              -v "${HOST_WORKSPACE_SRC}/user-service":/app \
                               -w /app node:20-alpine sh -c "npm install && npm test"
                         '''
                     }
@@ -32,7 +35,7 @@ pipeline {
                     steps {
                         sh '''
                             docker run --rm \
-                              -v "${WORKSPACE_SRC}/order-service":/app \
+                              -v "${HOST_WORKSPACE_SRC}/order-service":/app \
                               -w /app node:20-alpine sh -c "npm install && npm test"
                         '''
                     }
