@@ -5,7 +5,8 @@ pipeline {
         DOCKERHUB_CREDENTIALS = credentials('dockerhub-credentials')
         DOCKERHUB_USER = "${DOCKERHUB_CREDENTIALS_USR}"
         IMAGE_TAG = "${env.BUILD_NUMBER}"
-        HOST_WORKSPACE = "/home/anu/jenkins-home/workspace/microservice-app-ci"
+        // Use Jenkins workspace, not your host home path
+        WORKSPACE_SRC = "${env.WORKSPACE}/src"
     }
 
     stages {
@@ -21,14 +22,18 @@ pipeline {
                 stage('Test user-service') {
                     steps {
                         sh '''
-                            docker run --rm -v "$HOST_WORKSPACE/src/user-service":/app -w /app node:20-alpine sh -c "npm install && npm test"
+                            docker run --rm \
+                              -v "${WORKSPACE_SRC}/user-service":/app \
+                              -w /app node:20-alpine sh -c "npm install && npm test"
                         '''
                     }
                 }
                 stage('Test order-service') {
                     steps {
                         sh '''
-                            docker run --rm -v "$HOST_WORKSPACE/src/order-service":/app -w /app node:20-alpine sh -c "npm install && npm test"
+                            docker run --rm \
+                              -v "${WORKSPACE_SRC}/order-service":/app \
+                              -w /app node:20-alpine sh -c "npm install && npm test"
                         '''
                     }
                 }
@@ -39,17 +44,29 @@ pipeline {
             parallel {
                 stage('Build user-service') {
                     steps {
-                        sh 'docker build -t $DOCKERHUB_USER/user-service:$IMAGE_TAG -t $DOCKERHUB_USER/user-service:latest $HOST_WORKSPACE/src/user-service'
+                        sh '''
+                            docker build -t $DOCKERHUB_USER/user-service:$IMAGE_TAG \
+                              -t $DOCKERHUB_USER/user-service:latest \
+                              $WORKSPACE_SRC/user-service
+                        '''
                     }
                 }
                 stage('Build order-service') {
                     steps {
-                        sh 'docker build -t $DOCKERHUB_USER/order-service:$IMAGE_TAG -t $DOCKERHUB_USER/order-service:latest $HOST_WORKSPACE/src/order-service'
+                        sh '''
+                            docker build -t $DOCKERHUB_USER/order-service:$IMAGE_TAG \
+                              -t $DOCKERHUB_USER/order-service:latest \
+                              $WORKSPACE_SRC/order-service
+                        '''
                     }
                 }
                 stage('Build frontend') {
                     steps {
-                        sh 'docker build -t $DOCKERHUB_USER/frontend:$IMAGE_TAG -t $DOCKERHUB_USER/frontend:latest $HOST_WORKSPACE/src/frontend'
+                        sh '''
+                            docker build -t $DOCKERHUB_USER/frontend:$IMAGE_TAG \
+                              -t $DOCKERHUB_USER/frontend:latest \
+                              $WORKSPACE_SRC/frontend
+                        '''
                     }
                 }
             }
@@ -88,4 +105,3 @@ pipeline {
         }
     }
 }
-
