@@ -42,17 +42,17 @@ pipeline {
             parallel {
                 stage('Build user-service') {
                     steps {
-                        sh 'docker build -t $DOCKERHUB_USER/user-service:$IMAGE_TAG -t $DOCKERHUB_USER/user-service:latest $HOST_WORKSPACE/src/user-service'
+                        sh 'docker build -t $DOCKERHUB_USER/user-service:$IMAGE_TAG -t $DOCKERHUB_USER/user-service:latest $WORKSPACE/src/user-service'
                     }
                 }
                 stage('Build order-service') {
                     steps {
-                        sh 'docker build -t $DOCKERHUB_USER/order-service:$IMAGE_TAG -t $DOCKERHUB_USER/order-service:latest $HOST_WORKSPACE/src/order-service'
+                        sh 'docker build -t $DOCKERHUB_USER/order-service:$IMAGE_TAG -t $DOCKERHUB_USER/order-service:latest $WORKSPACE/src/order-service'
                     }
                 }
                 stage('Build frontend') {
                     steps {
-                        sh 'docker build -t $DOCKERHUB_USER/frontend:$IMAGE_TAG -t $DOCKERHUB_USER/frontend:latest $HOST_WORKSPACE/src/frontend'
+                        sh 'docker build -t $DOCKERHUB_USER/frontend:$IMAGE_TAG -t $DOCKERHUB_USER/frontend:latest $WORKSPACE/src/frontend'
                     }
                 }
             }
@@ -81,7 +81,6 @@ pipeline {
         stage('Update Manifests') {
             steps {
                 sh '''
-                    cd $HOST_WORKSPACE
                     sed -i "s|image: .*/user-service:.*|image: ${DOCKERHUB_USER}/user-service:${IMAGE_TAG}|" k8s/base/user-service.yaml
                     sed -i "s|image: .*/order-service:.*|image: ${DOCKERHUB_USER}/order-service:${IMAGE_TAG}|" k8s/base/order-service.yaml
                     sed -i "s|image: .*/frontend:.*|image: ${DOCKERHUB_USER}/frontend:${IMAGE_TAG}|" k8s/base/frontend.yaml
