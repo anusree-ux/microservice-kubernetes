@@ -12,7 +12,7 @@ spec:
     spec:
       containers:
         - name: user-service
-          image: anusree15/user-service:latest
+          image: anusree15/user-service:6
           ports: [{ containerPort: 5001 }]
           env:
             - name: DATABASE_URL
