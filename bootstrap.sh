@@ -1,16 +1,15 @@
 #!/bin/bash
-# bootstrap.sh — build, load, and deploy microservice-app to Kind
+
 set -e
 
 CLUSTER="microservice-app"
-NAMESPACE="microservice-app"
 
 echo "1. Creating Kind cluster (if not already running)..."
 echo "=========================================================="
 if kind get clusters | grep -q "^${CLUSTER}$"; then
   CLUSTER_EXISTED=true
 else
-  kind create cluster --config k8s/kind-config.yaml
+  kind create cluster --config kind-config.yaml
   CLUSTER_EXISTED=false
 fi
 
@@ -26,25 +25,28 @@ kind load docker-image user-service:local --name "$CLUSTER"
 kind load docker-image order-service:local --name "$CLUSTER"
 kind load docker-image frontend:local --name "$CLUSTER"
 
-echo "4. Applying Kubernetes manifests..."
-echo "=========================================================="
-kubectl apply -k k8s/overlays/local
+echo "=== 4. Deploying ingress-nginx controller ==="
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+echo "Waiting for ingress-nginx controller to be ready..."
+kubectl wait --namespace ingress-nginx \
+  --for=condition=ready pod \
+  --selector=app.kubernetes.io/component=controller \
+  --timeout=120s
 
-if [ "$CLUSTER_EXISTED" = true ]; then
-  echo "5. Restarting deployments to pick up new images..."
-  echo "========================================================="
-  kubectl rollout restart deployment/user-service deployment/order-service deployment/frontend -n "$NAMESPACE"
-else
-  echo "5. Skipping restart — cluster was just created, fresh images already in use."
-fi
+echo "=== 5. Applying base Kubernetes manifests ==="
+kubectl apply -k k8s/base
 
 echo "6. Waiting for deployments to be ready..."
 echo "============================================================="
-kubectl rollout status deployment/db -n "$NAMESPACE" --timeout=120s
-kubectl rollout status deployment/user-service -n "$NAMESPACE" --timeout=120s
-kubectl rollout status deployment/order-service -n "$NAMESPACE" --timeout=120s
-kubectl rollout status deployment/frontend -n "$NAMESPACE" --timeout=120s
+kubectl rollout status deployment/postgres
+kubectl rollout status deployment/user-service
+kubectl rollout status deployment/order-service
+kubectl rollout status deployment/frontend
+
+echo "=== 7. Initializing Database Schema ==="
+echo "Applying database migrations from ./src/db/init.sql..."
+kubectl exec -i deployment/postgres -- psql -U appuser -d appdb < ./src/db/init.sql
 
 echo ""
-echo "Done. App running at http://localhost:3000"
-kubectl get pods -n "$NAMESPACE"
+echo "Done. App running in 'http://localhost'"
+kubectl get pods -n
