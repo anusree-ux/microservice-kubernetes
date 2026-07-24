@@ -1,0 +1,5 @@
+grafana:
+  enabled: false   # already installed by kube-prometheus-stack
+ 
+promtail:
+  enabled: true
