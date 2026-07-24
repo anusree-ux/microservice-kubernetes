@@ -14,11 +14,21 @@ spec:
         - name: order-service
           image: anusree15/order-service:latest
           ports: [{ containerPort: 5002 }]
+
           env:
             - name: DATABASE_URL
               value: postgres://appuser:apppassword@postgres:5432/appdb
             - name: USER_SERVICE_URL
               value: http://user-service:5001
+
+          resources:
+            requests:
+              cpu: "20m"
+              memory: "64Mi"
+            limits:
+              cpu: "150m"
+              memory: "128Mi"
+
           readinessProbe:
             httpGet: { path: /health, port: 5002 }
             initialDelaySeconds: 5

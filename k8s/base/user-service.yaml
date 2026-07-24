@@ -17,6 +17,15 @@ spec:
           env:
             - name: DATABASE_URL
               value: postgres://appuser:apppassword@postgres:5432/appdb
+
+          resources:
+            requests:
+              cpu: "20m"
+              memory: "64Mi"
+            limits:
+              cpu: "150m"
+              memory: "128Mi"
+
           readinessProbe:
             httpGet: { path: /health, port: 5001 }
             initialDelaySeconds: 5
