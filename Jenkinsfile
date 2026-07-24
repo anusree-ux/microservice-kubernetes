@@ -4,12 +4,11 @@ pipeline {
     environment {
         DOCKERHUB_CREDENTIALS = credentials('dockerhub-credentials')
         DOCKERHUB_USER = "${DOCKERHUB_CREDENTIALS_USR}"
+        GITHUB_CREDENTIALS = credentials('github-credentials')
+        GIT_USER = "${GITHUB_CREDENTIALS_USR}"
+        GIT_TOKEN = "${GITHUB_CREDENTIALS_PSW}"
         IMAGE_TAG = "${env.BUILD_NUMBER}"
-
-        // Jenkins view
-        WORKSPACE_SRC = "${env.WORKSPACE}/src"
-        // Host view (for Docker bind mounts)
-        HOST_WORKSPACE_SRC = "/home/anu/jenkins-home/workspace/microservice-app-ci/src"
+        HOST_WORKSPACE = "/home/anu/jenkins-home/workspace/microservice-app-ci"
     }
 
     stages {
@@ -25,18 +24,14 @@ pipeline {
                 stage('Test user-service') {
                     steps {
                         sh '''
-                            docker run --rm \
-                              -v "${HOST_WORKSPACE_SRC}/user-service":/app \
-                              -w /app node:20-alpine sh -c "npm install && npm test"
+                            docker run --rm -v "$HOST_WORKSPACE/src/user-service":/app -w /app node:20-alpine sh -c "npm install && npm test"
                         '''
                     }
                 }
                 stage('Test order-service') {
                     steps {
                         sh '''
-                            docker run --rm \
-                              -v "${HOST_WORKSPACE_SRC}/order-service":/app \
-                              -w /app node:20-alpine sh -c "npm install && npm test"
+                            docker run --rm -v "$HOST_WORKSPACE/src/order-service":/app -w /app node:20-alpine sh -c "npm install && npm test"
                         '''
                     }
                 }
@@ -47,29 +42,17 @@ pipeline {
             parallel {
                 stage('Build user-service') {
                     steps {
-                        sh '''
-                            docker build -t $DOCKERHUB_USER/user-service:$IMAGE_TAG \
-                              -t $DOCKERHUB_USER/user-service:latest \
-                              $WORKSPACE_SRC/user-service
-                        '''
+                        sh 'docker build -t $DOCKERHUB_USER/user-service:$IMAGE_TAG -t $DOCKERHUB_USER/user-service:latest $HOST_WORKSPACE/src/user-service'
                     }
                 }
                 stage('Build order-service') {
                     steps {
-                        sh '''
-                            docker build -t $DOCKERHUB_USER/order-service:$IMAGE_TAG \
-                              -t $DOCKERHUB_USER/order-service:latest \
-                              $WORKSPACE_SRC/order-service
-                        '''
+                        sh 'docker build -t $DOCKERHUB_USER/order-service:$IMAGE_TAG -t $DOCKERHUB_USER/order-service:latest $HOST_WORKSPACE/src/order-service'
                     }
                 }
                 stage('Build frontend') {
                     steps {
-                        sh '''
-                            docker build -t $DOCKERHUB_USER/frontend:$IMAGE_TAG \
-                              -t $DOCKERHUB_USER/frontend:latest \
-                              $WORKSPACE_SRC/frontend
-                        '''
+                        sh 'docker build -t $DOCKERHUB_USER/frontend:$IMAGE_TAG -t $DOCKERHUB_USER/frontend:latest $HOST_WORKSPACE/src/frontend'
                     }
                 }
             }
@@ -94,6 +77,23 @@ pipeline {
                 sh 'docker push $DOCKERHUB_USER/frontend:latest'
             }
         }
+
+        stage('Update Manifests') {
+            steps {
+                sh '''
+                    cd $HOST_WORKSPACE
+                    sed -i "s|image: .*/user-service:.*|image: ${DOCKERHUB_USER}/user-service:${IMAGE_TAG}|" k8s/base/user-service.yaml
+                    sed -i "s|image: .*/order-service:.*|image: ${DOCKERHUB_USER}/order-service:${IMAGE_TAG}|" k8s/base/order-service.yaml
+                    sed -i "s|image: .*/frontend:.*|image: ${DOCKERHUB_USER}/frontend:${IMAGE_TAG}|" k8s/base/frontend.yaml
+
+                    git config user.email "jenkins@ci.local"
+                    git config user.name "Jenkins CI"
+                    git add k8s/base/user-service.yaml k8s/base/order-service.yaml k8s/base/frontend.yaml
+                    git commit -m "ci: update image tags to build ${IMAGE_TAG}" || echo "No changes to commit"
+                    git push https://${GIT_USER}:${GIT_TOKEN}@github.com/anusree-ux/microservice-kubernetes.git HEAD:main
+                '''
+            }
+        }
     }
 
     post {
@@ -101,7 +101,7 @@ pipeline {
             sh 'docker logout || true'
         }
         success {
-            echo "Pipeline succeeded — images pushed as build ${IMAGE_TAG}"
+            echo "Pipeline succeeded — images pushed and manifests updated for build ${IMAGE_TAG}"
         }
         failure {
             echo "Pipeline failed — check stage logs above"
