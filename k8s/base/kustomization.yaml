@@ -8,3 +8,5 @@ resources:
   - frontend.yaml
   - ingress.yaml
   - network-policies.yaml
+  - user-service-hpa.yaml
+  - order-service-hpa.yaml
