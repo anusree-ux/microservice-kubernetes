@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: user-service
 spec:
-  replicas: 3
+  replicas: 1
   selector:
     matchLabels: { app: user-service }
   template:
@@ -12,7 +12,7 @@ spec:
     spec:
       containers:
         - name: user-service
-          image: user-service:local
+          image: anusree15/user-service:latest
           ports: [{ containerPort: 5001 }]
           env:
             - name: DATABASE_URL
